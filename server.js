@@ -3,11 +3,13 @@ const mongoose = require ('mongoose')
 const cors = require ('cors')
 const {todo} = require ('./model/backend');
 const { connect } = require('http2');
+const jwt = require  ("jsonwebtoken")
 
 const app = express()
 
 app.use(cors())
 app.use(express.json())
+const SECRET = "Secret456"
 
 async function connectDB(){
     try{
@@ -69,7 +71,42 @@ app.delete("/delete/:id",async(req,res,next)=>{
         next(error)
     }
 })
+app.post('/register',async(req,res,next)=>{
+    try {
+        let {name,email,password} =req.body
+        let emaildata =null
+        if(emaildata){
+            res.send({message:"Already Account exist for this email",status:201})
+            return;
+        }else{
+            // let token = jwt.sign({id:785632},SECRET,{expiresIn:"5m"})
+            // let yi= jwt.sign
+            let token = jwt.sign({id:741856},SECRET,{expiresIn:"5m"})
 
+            res.send({message:"Registered Successfully",status:200,token:token})
+        }
+    } catch (error) {
+        next(error)
+    }
+})
+function auth(req,res,next){
+    try {
+        let token = req.headers.token
+        let result = jwt.verify(token,SECRET)
+        if(result){
+            next()
+            return;
+        }else{
+            res.send({message:"Unauthorized",status:401})
+            return
+        }
+    } catch (error) {
+        res.send({message:"Unauthorized",status:401,message:error.message})
+    }
+}
+app.get("/register",auth,(req,res,next)=>{
+    res.send({message:"You Have Access",status:200})
+})
 app.use((error,req,res,next)=>{
     res.send({status:error??500,error:error.message??"server error"})
 
