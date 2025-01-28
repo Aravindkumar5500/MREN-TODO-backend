@@ -2,6 +2,7 @@ const express = require ('express');
 const mongoose = require ('mongoose')
 const cors = require ('cors')
 const {todo} = require ('./model/backend');
+const {user} = require ('./model/user')
 const { connect } = require('http2');
 const jwt = require  ("jsonwebtoken")
 
@@ -10,6 +11,8 @@ const app = express()
 app.use(cors())
 app.use(express.json())
 const SECRET = "Secret456"
+
+app.use(['/update/:id','/delete/:id'],auth)
 
 async function connectDB(){
     try{
@@ -52,7 +55,7 @@ app.get('/todo',async(req,res,next)=>{
     }
 })
 
-app.put("/update/:id",async(req,res,next)=>{
+app.put("/update/:id",auth,async(req,res,next)=>{
     try {
         let data = await todo.findByIdAndUpdate(req.params.id,{task:req.body.task})
         res.send({message:"update",data:data,status:200})
@@ -62,7 +65,7 @@ app.put("/update/:id",async(req,res,next)=>{
     }
 })
 
-app.delete("/delete/:id",async(req,res,next)=>{
+app.delete("/delete/:id",auth,async(req,res,next)=>{
     try {
         let data = await todo.findByIdAndDelete(req.params.id)
         res.send({message:"delete",data:data,status:200})
@@ -72,41 +75,75 @@ app.delete("/delete/:id",async(req,res,next)=>{
     }
 })
 app.post('/register',async(req,res,next)=>{
+
+    
     try {
-        let {name,email,password} =req.body
-        let emaildata =null
-        if(emaildata){
+        let {email} =req.body
+         let data = await user.findOne({email:email})
+        
+       
+        if(data){
             res.send({message:"Already Account exist for this email",status:201})
             return;
         }else{
-            // let token = jwt.sign({id:785632},SECRET,{expiresIn:"5m"})
-            // let yi= jwt.sign
-            let token = jwt.sign({id:741856},SECRET,{expiresIn:"5m"})
+           
+            let regdata = new user (req.body)
+            let data = await regdata.save()
+            let token = jwt.sign({id:data._id},SECRET,{expiresIn:"5m"})
 
-            res.send({message:"Registered Successfully",status:200,token:token})
+            res.send({message:"Registered Successfully",status:200,token:token,data:data})
+        }
+    } catch (error) {
+         next(error)
+    }
+})
+
+app.post('/login',async(req,res,next)=>{
+    try{
+        let {email,password} = req.body
+        let data    = await user.findOne(email,password) 
+      
+        if(data){
+            if(data.email == email && data.password == password){
+                let token = jwt.sign({id:data._id},SECRET,{expiresIn:"5m"})
+                res.send({message:"Login Success",status:200,token:token})
+            }else{
+                res.send({message:"Invalid Password",status:400})
+            }
+        }else{
+            res.send({message:"Account not found",status:404})
         }
     } catch (error) {
         next(error)
     }
-})
+    }
+)
+
 function auth(req,res,next){
     try {
         let token = req.headers.token
         let result = jwt.verify(token,SECRET)
         if(result){
-            next()
+             next()
             return;
         }else{
-            res.send({message:"Unauthorized",status:401})
+            res.send({message:error.message,status:400})
             return
         }
     } catch (error) {
-        res.send({message:"Unauthorized",status:401,message:error.message})
+        res.send({message:error.message,status:401})
+        next(error)
     }
 }
-app.get("/register",auth,(req,res,next)=>{
-    res.send({message:"You Have Access",status:200})
-})
+app.get("/signup",async(req,res,next)=>{
+    try {
+       
+        res.send({message:"You Have Access",status:200})
+    } catch (error) {
+        next(error)
+    }
+}
+)
 app.use((error,req,res,next)=>{
     res.send({status:error??500,error:error.message??"server error"})
 
